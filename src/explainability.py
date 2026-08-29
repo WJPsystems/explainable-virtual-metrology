@@ -14,7 +14,64 @@ See docs/synopsis.docx, "Solution to RQ2" for the full write-up.
 
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr
+from scipy.stats import spearmanr, ttest_rel, wilcoxon
+
+
+def paired_agreement_significance_test(correlations_a: np.ndarray, correlations_b: np.ndarray) -> dict:
+    """
+    Formal significance test for whether two models' per-instance SHAP-
+    agreement correlations (e.g. TabNet attention vs. SHAP, and an MLP
+    control's Integrated Gradients vs. SHAP) genuinely differ, rather than
+    reporting the two mean correlations side by side and treating a visible
+    gap as self-evidently significant. This is what RQ4's own stated
+    hypotheses (H0/Ha) require: a formal test at a stated significance
+    level, not an eyeballed comparison.
+
+    Uses a PAIRED test, not an independent-samples test, since both arrays
+    are per-instance correlations computed on the SAME wafers (paired by
+    instance) -- treating them as independent would throw away that
+    pairing and understate the test's power.
+
+    Two tests are reported together, matching this project's established
+    pattern of pairing a primary parametric test with a non-parametric
+    cross-check elsewhere (e.g. RQ3's bootstrap AUC comparison alongside
+    McNemar's test): a paired t-test (primary) and a Wilcoxon signed-rank
+    test (robustness check, since per-instance correlations are bounded to
+    [-1, 1] and often skewed, which can violate the t-test's normality
+    assumption).
+    """
+    correlations_a = np.asarray(correlations_a)
+    correlations_b = np.asarray(correlations_b)
+    if correlations_a.shape != correlations_b.shape:
+        raise ValueError(
+            f"Shape mismatch: {correlations_a.shape} vs {correlations_b.shape} -- "
+            "both arrays must be paired, per-instance correlations over the same wafers."
+        )
+
+    diffs = correlations_a - correlations_b
+
+    # Guard the degenerate case (identical or near-identical arrays) for BOTH
+    # tests: scipy's ttest_rel returns NaN when the differences have zero
+    # variance (0/0 internally), which is a real edge case, not hypothetical --
+    # caught by testing this function against identical-array inputs before
+    # shipping. NaN would be misleading here since the correct semantic
+    # answer ("no difference") is well-defined even though the raw t-statistic
+    # is not.
+    if np.allclose(diffs, 0):
+        t_stat, t_pvalue = 0.0, 1.0
+        w_stat, w_pvalue = 0.0, 1.0
+    else:
+        t_stat, t_pvalue = ttest_rel(correlations_a, correlations_b)
+        w_stat, w_pvalue = wilcoxon(correlations_a, correlations_b)
+
+    return {
+        "mean_diff": float(np.mean(diffs)),
+        "paired_ttest_statistic": float(t_stat),
+        "paired_ttest_pvalue": float(t_pvalue),
+        "wilcoxon_statistic": float(w_stat),
+        "wilcoxon_pvalue": float(w_pvalue),
+        "n_pairs": int(len(correlations_a)),
+    }
 
 
 def per_instance_agreement(importances_a: np.ndarray, importances_b: np.ndarray, top_k: int = 3) -> dict:

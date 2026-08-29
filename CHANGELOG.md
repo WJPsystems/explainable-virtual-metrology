@@ -7,7 +7,114 @@ each notebook's "Notebook version" marker (in its first cell) exist so you
 can tell, at a glance, whether the copy you're looking at in Colab/GitHub is
 current, without needing to diff files by hand.
 
-## v25 -- 2026-08-04
+## v28 -- 2026-08-29
+
+- **Implemented RQ4's formal significance test**, a real analytical gap
+  identified while planning the Final Report: RQ4's own stated hypotheses
+  (H0/Ha) require testing whether TabNet's attention-vs-SHAP agreement
+  differs significantly from the MLP control's Integrated-Gradients-vs-SHAP
+  agreement -- previously only the two mean correlations (-0.1681 vs.
+  0.8479) were reported side by side, with no formal test backing the
+  "TabNet's attention isn't trustworthy" conclusion.
+- **New `paired_agreement_significance_test()`** in `src/explainability.py`:
+  a paired t-test (primary) plus a Wilcoxon signed-rank test (robustness
+  check, since per-instance correlations are bounded to [-1, 1] and often
+  skewed, which can violate the t-test's normality assumption) -- matching
+  this project's established pattern of pairing a parametric primary test
+  with a non-parametric cross-check (as in RQ3's bootstrap AUC + McNemar's).
+  Uses a PAIRED test specifically, not independent-samples, since both
+  correlation arrays are computed on the same wafers.
+- **Real edge case found and fixed during testing, not after shipping**:
+  scipy's `ttest_rel` returns `NaN` when two input arrays are identical
+  (zero-variance differences cause 0/0 internally) -- caught by explicitly
+  testing this function against identical-array inputs before wiring it
+  into the notebook, not assumed safe. Fixed by explicitly guarding the
+  zero-variance case for both tests, returning a semantically correct
+  p=1.0 ("no difference") instead of `NaN`.
+- Verified with 4 tests before shipping (large real-magnitude gap ->
+  significant on both tests; identical arrays -> p=1.0, no NaN; tiny
+  noise-level difference -> not significant at alpha=.05; shape mismatch
+  -> raises clearly) plus a full integration test simulating the actual
+  `05_attention_comparison_rq4.ipynb` data flow end-to-end.
+- **`05_attention_comparison_rq4.ipynb` updated**: Step 4's RQ4-answer cell
+  now runs the formal test and states an explicit "reject/fail to reject
+  H0(4) at alpha=0.05" conclusion, rather than an eyeballed mean comparison.
+  Not yet run against real SECOM data -- that confirmation is still
+  outstanding.
+
+## v27 -- 2026-08-23
+
+- **Added an APA-style Table of Contents to both `docs/synopsis.docx` and
+  `QM640_Interim_Report.docx`** (the latter delivered as a standalone file,
+  not added to the repo). Built as a manually-typed TOC with dot leaders,
+  not a native docx-js/Word TOC field -- verified directly that a native
+  field renders BLANK under LibreOffice headless conversion (only
+  populates after a manual "update fields" action in an interactive Word
+  session), which was judged too fragile for a graded submission a student
+  might not remember to refresh before printing/submitting.
+- **Every TOC entry's page number was independently verified against the
+  actual rendered PDF** (not assumed from source order) -- extracted real
+  page numbers via `pdftotext`, cross-checked all 33 (Interim Report) and
+  23 (Synopsis) entries programmatically against the final build, 0
+  mismatches in both documents.
+- Real bug caught and fixed during this work: a content paragraph
+  intended for the Literature Survey landed structurally *after* its
+  array's closing bracket during a text-insertion edit -- it loaded
+  without a JavaScript error (since a bare expression statement is valid
+  syntax) but never actually rendered, since it was never part of the
+  exported array. Caught by explicitly checking array membership after
+  each edit, not just that the module still loaded -- now standard
+  practice for any future docx-js content edits in this project.
+- Interim Report's body content was expanded across several turns to
+  approach the target page range (Literature Survey, Analysis, Modelling,
+  and Preliminary Results sections each received additional real
+  analytical paragraphs, not filler) before settling at ~14-15 pages of
+  counted body text against a 15-20 page target, at the user's explicit
+  decision to accept this as sufficient rather than continue expanding
+  toward the upper end of the range.
+
+## v26 -- 2026-08-23
+
+- **Synopsis updated to address evaluator feedback on the graded submission**,
+  no notebook/src code changes this version:
+  - Added null and alternate hypotheses (H0/Ha) under each of the four RQs
+    in Scope and Objectives.
+  - Sample Size Calculation section rewritten to explain *why* each
+    parameter value was chosen (EPV=10, power=.80, alpha=.05, effect
+    sizes) rather than stating them as a bare formulaic application.
+  - Added a direct paragraph addressing whether the real missingness/
+    variance screening results (32 dropped for missingness, 126 for
+    near-zero variance, 432 remaining) threaten sample-size adequacy --
+    clarifies the binding EPV constraint depends on event count and final
+    predictor count (k), not raw feature count before screening.
+  - Analytic Approach section now opens with a tabulated summary (RQ |
+    Technique | Reasoning | Hypothesis Tested) before the existing
+    per-RQ prose, addressing feedback to tabulate solutions with reasoning.
+  - Evaluation Metrics section converted from a bullet list of formulae
+    into a full table with a business-language interpretation column,
+    addressing feedback that metrics should be legible to a non-technical
+    engineering audience.
+- **New deliverable: `QM640_Interim_Report.docx`**, built from scratch
+  following the QM640 Interim Report template exactly (not derived by
+  editing the synopsis) -- title page, GitHub link, Introduction, Interim
+  Project Status, Scope/Objectives with hypotheses, Literature Survey (13
+  sources, relevance matrix), Data Description, Analysis (data cleaning
+  log, EDA with real insights, sample-size justification), Modelling
+  (model justification, real feature table, business-language metrics),
+  Preliminary Results (all 4 RQs + robustness check, real numbers
+  throughout, cross-RQ synthesis), Limitations, Next Steps, Bibliography
+  (22 references), Appendix A (code). Kept as a standalone document, not
+  added to the repo's `docs/` folder automatically -- delivered separately
+  pending the user's own placement decision.
+- **Real bug caught and fixed during construction**: the Appendix A code
+  block initially rendered as one unreadable line -- embedded `\n`
+  characters inside a single docx-js `TextRun` are silently ignored, not
+  rendered as line breaks (a documented docx-js gotcha this build violated
+  on the first pass). Fixed using `TextRun`'s `break` property between
+  lines instead, verified by re-rendering to PDF and visually confirming
+  proper indentation and line breaks.
+
+## v25 -- 2026-08-02
 
 - **v24's SMOTE robustness check confirmed run against real SECOM data.**
   Verified directly from GitHub's hosted HTML exports (not just a chat
