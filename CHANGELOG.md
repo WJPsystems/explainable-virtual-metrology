@@ -7,6 +7,45 @@ each notebook's "Notebook version" marker (in its first cell) exist so you
 can tell, at a glance, whether the copy you're looking at in Colab/GitHub is
 current, without needing to diff files by hand.
 
+## v30 -- 2026-08-30
+
+- **Added the "Visual Evidence" charts for the Final Report** (10 total,
+  the item that had been explicitly deferred/pinned in prior planning):
+  - `01`: class distribution bar chart (pass vs. fail)
+  - `02`: ROC curves and Precision-Recall curves, all 4 RQ1 models overlaid
+  - `03`: SHAP top-10 bar chart; a rank-based SHAP-vs-permutation-importance
+    comparison chart (redesigned after an initial binary-flag version
+    tested visually flat -- rank-based bar length conveys both membership
+    and relative importance)
+  - `04`: confusion matrices (reduced model, default vs. tuned threshold);
+    predicted-probability histogram with both thresholds marked; full-vs-
+    reduced grouped bar chart across 5 metrics
+  - `05`: RQ4 raw-vs-magnitude-only grouped bar chart; RQ4 per-instance
+    paired scatter (TabNet vs. MLP correlation with SHAP, 40 wafers)
+- **New `src/plotting.py`**: a fixed model-to-color mapping (Random Forest,
+  XGBoost, Logistic Regression, TabNet, MLP) applied identically across
+  every chart that compares these models, plus a shared `save_figure()`
+  helper writing consistently to the new `data/artifacts/figures/` folder.
+  Optimized for the Word/PDF report specifically; a presentation-specific
+  (PPT) restyling pass is explicitly deferred, not assumed compatible.
+- **All 10 charts verified against synthetic data before touching any real
+  notebook**, including deliberate edge cases drawn from this project's
+  own real findings: a fully degenerate zero-recall confusion matrix (the
+  exact RF-at-0.5 pattern from RQ1/RQ3) renders correctly with legible
+  zero-cells; a negative-value bar (RQ4's raw TabNet correlation) renders
+  correctly below the zero line; a degenerate all-identical-score PR curve
+  does not crash.
+- **Fixed a real gap in `00_run_all.ipynb`'s existing data/artifacts
+  download cell**: it used `os.listdir()` (single-level) on each `data/`
+  subfolder, which would have silently skipped every new figure in the
+  nested `data/artifacts/figures/` folder without any error. Changed to
+  `os.walk()` (recursive), verified against a synthetic nested-folder test
+  before shipping -- confirmed the fixed version correctly includes nested
+  files while still excluding `PLACEHOLDER.md`.
+- Not yet run against real SECOM data -- all 10 charts are implemented and
+  synthetic-verified, but the real chart images still need a fresh run to
+  generate before they can be embedded in the Final Report.
+
 ## v29 -- 2026-08-30
 
 - **Real methodological question found via critical re-examination of v28's
