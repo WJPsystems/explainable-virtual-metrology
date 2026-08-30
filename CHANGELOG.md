@@ -7,6 +7,54 @@ each notebook's "Notebook version" marker (in its first cell) exist so you
 can tell, at a glance, whether the copy you're looking at in Colab/GitHub is
 current, without needing to diff files by hand.
 
+## v33 -- 2026-08-30
+
+- **Diagnosed a real environment failure from actual user-reported stderr**:
+  `00_run_all.ipynb` reported all six notebooks failing at kernel startup,
+  before any of their own cells ran. Root cause, confirmed from the
+  traceback: a Colab base image shipping Python 3.13 (every prior
+  successful run in this project's history shows Python 3.12) has
+  `google.colab`'s own `_shell_customizations.py` crash on import
+  (`AttributeError: type object 'TermColors' has no attribute 'Green'`)
+  due to an internal mismatch between the pre-installed `google-colab`
+  package and whatever IPython version ships in that same image -- a
+  genuine Colab-platform bug, external to this repo, its notebooks, or any
+  of this project's own code.
+- **Ruled out, not just assumed, that this project's own v31 change
+  contributed**: v31 added an explicit `ipython>=8.0` line to
+  `requirements.txt`. Reasoned through whether this could have forced an
+  upgrade past whatever version Colab's image already had pre-installed --
+  concluded unlikely, since `>=8.0` is a loose lower bound almost any
+  current Colab environment already satisfies without triggering a
+  version change. Removed the explicit pin anyway as a zero-cost
+  precaution, since `ipython` remains available transitively via the
+  existing `jupyter>=1.0` dependency regardless.
+- **Added a best-effort mitigation, not a guaranteed fix, to
+  `00_run_all.ipynb`'s setup cell**: attempts `pip install --upgrade
+  google-colab` in the main, already-running Colab kernel before it
+  spawns the subprocess kernels that actually crash for `01`-`06` --
+  correctly scoped to the only place this could plausibly help, since the
+  actual failure happens at subprocess-kernel startup, before even that
+  notebook's own first cell (including its own Colab setup cell) would
+  run. If Google has already patched `google-colab` to match a newer
+  IPython, this picks the fix up automatically; if not, this is a no-op
+  and the original failure will look the same as before. Explicitly
+  disclosed as a mitigation for an external platform issue, not something
+  this repo can guarantee resolves it.
+- Also added a plain `print(f"Python: {sys.version}")` to the same setup
+  cell, so a Python-version mismatch like this one is visible immediately
+  in the setup output on any future run, rather than requiring a full
+  traceback dig to notice.
+- **Fixed a real bug in my own first attempt at this fix**: initially
+  wrote the `google-colab` upgrade using a `try: !pip install ...` block,
+  which is invalid pure Python syntax once IPython's `!`-magic line is the
+  only statement inside the `try` body -- caught by this project's own
+  syntax-validation step before shipping, not discovered later. Replaced
+  with `subprocess.run()`, matching the pattern already used elsewhere in
+  this same cell for the `git log` commit-hash check, which also gives an
+  actual return code to test rather than relying on magic-command error
+  suppression.
+
 ## v32 -- 2026-08-30
 
 - **Resolved the RQ4 run-to-run reproducibility gap identified from v30's

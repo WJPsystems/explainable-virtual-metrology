@@ -9,7 +9,6 @@ imbalanced-learn>=0.12
 matplotlib>=3.7
 seaborn>=0.13
 jupyter>=1.0
-ipython>=8.0
 nbconvert>=7.0
 pytorch-tabnet>=4.1
 torch>=2.0
