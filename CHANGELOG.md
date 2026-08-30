@@ -7,6 +7,37 @@ each notebook's "Notebook version" marker (in its first cell) exist so you
 can tell, at a glance, whether the copy you're looking at in Colab/GitHub is
 current, without needing to diff files by hand.
 
+## v29 -- 2026-08-30
+
+- **Real methodological question found via critical re-examination of v28's
+  confirmed RQ4 result, not a bug**: TabNet's `.explain()` output is a
+  sparsemax-derived attention mask, typically non-negative (magnitude of
+  feature use only, no direction), while SHAP and Integrated Gradients are
+  SIGNED (direction and magnitude of contribution). Correlating a
+  non-negative array against a signed array partly tests a representational
+  mismatch, not purely whether the importance ranking agrees -- confirmed
+  on synthetic data that this mismatch alone can make a genuinely-agreeing
+  pair of signals look like they disagree (raw correlation of -0.06 when
+  the true magnitude-only agreement was 0.82).
+- **Added a diagnostic check** (Step 2) printing TabNet's and the MLP's
+  explanation value ranges, to confirm directly (not assume) whether
+  TabNet's output is genuinely non-negative in this specific pipeline.
+- **Added a new Step 5 supplementary analysis**: re-runs the RQ4 agreement
+  comparison using absolute values on both sides (magnitude-only,
+  sign-agnostic), with its own paired significance test, to determine
+  whether Step 4's conclusion is robust to this representational concern
+  or was substantially an artifact of it. The notebook now prints an
+  explicit interpretation of which case applies, rather than requiring
+  manual comparison of the two results.
+- Verified the underlying logic on synthetic data before shipping,
+  including a realistic scenario mimicking the actual RQ4 setup (TabNet
+  genuinely disagreeing with SHAP, MLP genuinely agreeing) to confirm the
+  new Step 5 cell correctly computes and reports the magnitude-only
+  comparison.
+- Not yet run against real SECOM data -- whether v28's RQ4 conclusion
+  survives this check, or needs qualifying, is still an open, real
+  question pending this run.
+
 ## v28 -- 2026-08-29
 
 - **Implemented RQ4's formal significance test**, a real analytical gap
