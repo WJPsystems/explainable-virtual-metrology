@@ -19,6 +19,7 @@ figsize/font sizes for that context.
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from IPython.display import display
 
 FIGURES_DIR = Path(__file__).resolve().parents[1] / "data" / "artifacts" / "figures"
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
@@ -72,9 +73,21 @@ def save_figure(fig, name):
     Save a figure to the shared figures artifact folder as a PNG, and
     return the saved path. `name` should be a short, descriptive,
     snake_case identifier without an extension (e.g. 'rq1_roc_curves').
+
+    Displays the figure inline in the notebook BEFORE closing it -- a real
+    bug in an earlier version of this function called plt.close(fig)
+    immediately after saving, which destroyed the figure before Jupyter's
+    normal end-of-cell auto-display could render it. The PNG still saved
+    correctly (which is why the file existed on disk), but nothing ever
+    appeared in the notebook's own output cells or HTML export. Using
+    IPython.display.display(fig) explicitly, rather than plt.show(), so
+    this doesn't depend on the figure still being matplotlib's globally
+    tracked "current figure" -- correct regardless of how many other
+    figures a cell creates before or after this one.
     """
     path = FIGURES_DIR / f"{name}.png"
     fig.savefig(path, dpi=DPI, bbox_inches="tight", facecolor="white")
+    display(fig)
     plt.close(fig)
     print(f"Saved figure: {path}")
     return path

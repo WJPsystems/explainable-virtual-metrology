@@ -7,6 +7,68 @@ each notebook's "Notebook version" marker (in its first cell) exist so you
 can tell, at a glance, whether the copy you're looking at in Colab/GitHub is
 current, without needing to diff files by hand.
 
+## v32 -- 2026-08-30
+
+- **Resolved the RQ4 run-to-run reproducibility gap identified from v30's
+  real-data run**: `shap.sample()`'s background selection was already
+  seeded (`random_state=42`), but `KernelExplainer.shap_values()`'s own
+  Monte Carlo coalition sampling was not -- it draws from numpy's global
+  random state, which is why RQ4's exact numbers drifted across four
+  separate real runs even though the qualitative conclusion held every
+  time. Fixed by calling `np.random.seed(42)` immediately before each of
+  the two `shap_values()` calls in `05_attention_comparison_rq4.ipynb`
+  (TabNet's and the MLP's), re-seeding before the second call specifically
+  since the first call's own random draws would otherwise have already
+  consumed and advanced the seeded state.
+- **Verified the fix genuinely produces bit-identical results**, not just
+  assumed to: first isolated the mechanism on a minimal synthetic case
+  (confirmed unseeded calls differ, seeded calls match exactly), then ran
+  a full integration test mimicking the real notebook cell's exact
+  structure end-to-end twice (background sampling, explainer construction,
+  seeded `shap_values()` call) -- confirmed max absolute difference of
+  0.0 between the two runs.
+- This closes the gap between this project's stated reproducibility claims
+  (Materials and Method: "version-controlled and publicly reproducible via
+  GitHub") and RQ4's actual behavior, which previously contradicted that
+  claim in practice.
+- Not yet run against real SECOM data -- the next real run should now
+  produce RQ4 numbers that exactly match any subsequent re-run, which
+  itself is a testable claim worth confirming once real output is back.
+
+## v31 -- 2026-08-30
+
+- **Real bug found from the v30 run's real output, not caught before
+  shipping**: all 10 charts saved correctly to `data/artifacts/figures/`
+  (confirmed -- the real PNGs were reviewed and are correct), but none of
+  them appeared inline in any notebook's own output cells or HTML export.
+  Root cause: `save_figure()` called `plt.close(fig)` immediately after
+  saving, which destroyed the figure before Jupyter's normal end-of-cell
+  auto-display mechanism ever got a chance to render it. The save
+  succeeded; the display never had a chance to happen.
+- **Fixed** by calling `IPython.display.display(fig)` explicitly right
+  before closing, in `src/plotting.py`'s `save_figure()` -- deliberately
+  using `display(fig)` rather than `plt.show()`, since `plt.show()` renders
+  matplotlib's globally-tracked "current figure," which is fragile in
+  cells that create more than one figure (as `02` and `04` both do);
+  `display(fig)` renders the specific figure object passed in, regardless
+  of what else has been created in the same cell.
+- Verified the fix with a synthetic multi-figure-per-cell test (mimicking
+  `02`/`04`'s actual pattern of 2-3 charts in one cell) before shipping:
+  confirmed each figure displays and closes correctly and independently,
+  with no cross-contamination between figures created in sequence.
+- Added `ipython` as an explicit direct dependency in `requirements.txt`
+  (previously only available transitively via `jupyter`), matching this
+  project's standing practice of declaring direct dependencies explicitly
+  rather than relying on transitive installs.
+- **Still open from v30's real-data findings, not yet resolved**: RQ4's
+  exact reported numbers drift between runs (`shap.sample()`'s background
+  selection is seeded, but the actual `explainer.shap_values(...)`
+  Monte Carlo coalition sampling is not) -- confirmed across four separate
+  real runs, with the qualitative conclusion stable each time but the
+  precise figures shifting. Awaiting a decision on whether to seed this
+  step for genuine reproducibility (recommended) before finalizing which
+  run's numbers go into the Final Report.
+
 ## v30 -- 2026-08-30
 
 - **Added the "Visual Evidence" charts for the Final Report** (10 total,
