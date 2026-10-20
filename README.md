@@ -14,7 +14,7 @@ readings per wafer. This project builds a virtual metrology pipeline that:
 4. Tests whether TabNet's built-in attention-based interpretability is actually trustworthy, using SHAP as the reference and a plain MLP as a control to isolate the attention mechanism's contribution (RQ4)
 5. As a secondary, exploratory robustness check (not a formal RQ): an unsupervised Isolation Forest anomaly detector on the full feature set, to catch novel failure modes that the reduced supervised model can't learn from labels alone
 
-See `docs/synopsis.docx` for the full capstone synopsis, including the research
+See `docs/synopsis.docx` for the full synopsis, including the research
 questions, sample-size justification, and evaluation metrics.
 
 ## Data source
